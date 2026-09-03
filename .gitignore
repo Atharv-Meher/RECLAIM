@@ -1,0 +1,6 @@
+reclaim.db
+__pycache__/
+*.pyc
+*.png
+.env
+evaluation_results.txt
