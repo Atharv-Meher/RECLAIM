@@ -6,8 +6,15 @@ seeded by (case_id, action, attempt_number) for reproducibility.
 Supports force-failure mode for demo scenarios.
 """
 
+import hashlib
 import json
 import random
+
+
+def deterministic_seed(case_id: str, action: str, attempt_number: int) -> int:
+    """Generate a reproducible integer seed across process launches."""
+    key = f"{case_id}:{action}:{attempt_number}".encode("utf-8")
+    return int(hashlib.sha256(key).hexdigest()[:15], 16)
 
 
 class SimulatedExecutor:
@@ -49,7 +56,7 @@ class SimulatedExecutor:
         true_prob = hidden_probs.get(action, 0.0)
 
         # Deterministic seed based on (case_id, action, attempt_number)
-        seed = hash((case["case_id"], action, attempt_number))
+        seed = deterministic_seed(case["case_id"], action, attempt_number)
         rng = random.Random(seed)
 
         return rng.random() < true_prob

@@ -13,6 +13,9 @@ import json
 import random
 
 
+from reclaim.core.executor import deterministic_seed
+
+
 def run_baseline(cases: list[dict], seed: int = 42) -> dict:
     """
     Run the baseline strategy on the given batch of cases.
@@ -38,7 +41,7 @@ def run_baseline(cases: list[dict], seed: int = 42) -> dict:
             action = "reminder_message"
 
         # Deterministic outcome using case_id-based seed (same as Executor)
-        case_rng = random.Random(hash((case_id, action, 0)))
+        case_rng = random.Random(deterministic_seed(case_id, action, 0))
         true_prob = hidden_probs.get(action, 0.0)
         recovered = case_rng.random() < true_prob
 
