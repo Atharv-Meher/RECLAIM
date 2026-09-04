@@ -169,6 +169,10 @@ def run_demo(case_id: str | None = None, force_failure: bool = False):
             attempts += 1
             scorer.update(root_cause, best_action, recovered)
 
+            if "razorpay_payment_link" in selected:
+                link = selected["razorpay_payment_link"]
+                print(f"  🔗 [RAZORPAY TEST API] Real Payment Link: {link.get('short_url')} (ID: {link.get('id')})")
+
             if recovered:
                 sm.transition(CaseState.RECOVERED)
                 audit.log_decision(

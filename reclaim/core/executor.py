@@ -17,14 +17,21 @@ def deterministic_seed(case_id: str, action: str, attempt_number: int) -> int:
     return int(hashlib.sha256(key).hexdigest()[:15], 16)
 
 
+from reclaim.core.razorpay_adapter import RazorpayAdapter
+
+
 class SimulatedExecutor:
     """
-    Deterministic outcome simulator.
+    Deterministic outcome simulator with optional Razorpay test-mode API swap-in.
 
-    For each (case, action, attempt), draws a random outcome using the
-    case's hidden true probabilities, seeded deterministically so re-runs
-    produce identical results.
+    For each (case, action, attempt), draws an outcome using the case's
+    hidden true probabilities. When Razorpay API keys are configured,
+    the `alternate_payment_method` action will also generate real live
+    Razorpay payment links (test mode).
     """
+
+    def __init__(self, enable_real_razorpay: bool = True):
+        self.razorpay_adapter = RazorpayAdapter() if enable_real_razorpay else None
 
     def execute(
         self,
@@ -47,6 +54,18 @@ class SimulatedExecutor:
         """
         if force_failure:
             return False
+
+        # Optional real Razorpay API swap-in for alternate_payment_method
+        if action == "alternate_payment_method" and self.razorpay_adapter and self.razorpay_adapter.is_configured():
+            try:
+                link_data = self.razorpay_adapter.create_payment_link(
+                    case_id=case["case_id"],
+                    amount=case["amount"],
+                    root_cause=case.get("root_cause"),
+                )
+                case["razorpay_payment_link"] = link_data
+            except Exception as e:
+                case["razorpay_error"] = str(e)
 
         # Parse hidden probabilities
         hidden_probs = case["hidden_probabilities"]
