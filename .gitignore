@@ -1,5 +1,6 @@
 reclaim.db
 __pycache__/
+*.zip
 *.pyc
 *.png
 .env
