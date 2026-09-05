@@ -52,7 +52,7 @@ flowchart TD
 ```
 
 ### The Bayesian ERV Scorer
-$$\text{ERV}(a) = P(\text{recovery} \mid \text{root\_cause}, a) \times \text{amount} - \text{cost}(a) - \text{friction}(a) - \text{risk}(a)$$
+$$\text{ERV}(a) = P(\text{recovery} \mid \text{root\cause}, a) \times \text{amount} - \text{cost}(a) - \text{friction}(a) - \text{risk}(a)$$
 
 - Instead of a static or blackbox ML classifier, RECLAIM maintains a **$\text{Beta}(\alpha, \beta)$ posterior** for each `(root_cause, action)` pair.
 - The prior is weak uniform ($\alpha_0=1, \beta_0=1$).
