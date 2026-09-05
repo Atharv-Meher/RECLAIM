@@ -5,6 +5,5 @@ __pycache__/
 !ARCHITECTURE.md
 *.zip
 *.pyc
-*.png
 .env
 evaluation_results.txt
