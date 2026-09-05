@@ -1,0 +1,10 @@
+# RECLAIM — Dependencies
+# Core
+matplotlib
+pytest
+
+# Optional — only needed for live Razorpay payment link generation (test mode)
+razorpay
+
+# Optional — only needed for LLM narrator (template fallback used if absent)
+# groq

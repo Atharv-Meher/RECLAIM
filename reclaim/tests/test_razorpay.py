@@ -40,3 +40,25 @@ def test_configured_adapter_creates_link_mock():
     assert link["short_url"] == "https://rzp.io/i/test999"
     assert link["amount_paise"] == 250000
     mock_client.payment_link.create.assert_called_once()
+
+
+def test_sdk_available_sentinel_exists():
+    """Verify the RAZORPAY_SDK_AVAILABLE sentinel is exposed by the adapter module."""
+    from reclaim.core.razorpay_adapter import RAZORPAY_SDK_AVAILABLE
+    assert isinstance(RAZORPAY_SDK_AVAILABLE, bool)
+
+
+def test_adapter_degrades_without_sdk():
+    """Verify adapter returns clean False/message when SDK is unavailable."""
+    from reclaim.core import razorpay_adapter as mod
+    original = mod.RAZORPAY_SDK_AVAILABLE
+    try:
+        mod.RAZORPAY_SDK_AVAILABLE = False
+        adapter = RazorpayAdapter(key_id="rzp_test_x", key_secret="secret")
+        assert not adapter.is_configured()
+        valid, msg = adapter.verify_credentials()
+        assert not valid
+        assert "not installed" in msg.lower() or "not configured" in msg.lower()
+    finally:
+        mod.RAZORPAY_SDK_AVAILABLE = original
+

@@ -59,6 +59,11 @@ $$\text{ERV}(a) = P(\text{recovery} \mid \text{root\_cause}, a) \times \text{amo
 - **The system learns across the batch:** Case #200 is scored using empirical recovery data from cases #1–199.
 - **Confidence is explicit:** $\text{Confidence} = \alpha + \beta - 2$ (number of real observations). If $\text{confidence} < 5$, the agent escalates to human review rather than guessing.
 
+### LLM Narration Layer
+An LLM narration layer (Groq / Llama 3) drafts customer-facing messages and human-review escalation briefings **after** each decision is finalized — additive only, with a hardcoded template fallback if the API is unavailable. All five decision components upstream (risk scoring, RCA, policy generation, ERV scoring, guardrails) remain rule-based or Bayesian-statistical by design.
+
+> **Note on escalation accounting:** When a case is escalated, the agent still executes the action once (to collect a real observation for the Bayesian posterior), but the outcome is always logged and counted as `"escalated"` — even if that execution would have succeeded. Escalated cases' ₹ recovery does not count toward the autonomous recovery headline.
+
 ---
 
 ## 3. Defense-Only Action Allowlist
@@ -78,11 +83,14 @@ RECLAIM operates within a frozen action allowlist. Proposing or executing any ac
 ### Prerequisites
 - Python 3.10+
 - SQLite3 (included in standard library)
-- Dependencies: `matplotlib` (for chart generation) and `pytest` (for automated test suite)
 
 ```bash
-pip install matplotlib pytest
+pip install -r requirements.txt
 ```
+
+**Optional dependencies** (not required for the core pipeline):
+- `razorpay` — enables live test-mode payment link generation
+- `groq` — enables LLM-drafted customer messages (template fallback used if absent)
 
 ---
 
@@ -109,8 +117,15 @@ python -m reclaim.evaluation.demo_scenario
 python -m reclaim.evaluation.demo_scenario --force-failure
 ```
 
-### 5.3 Automated Test Suite
-Runs all 14 unit tests validating guardrails, state machine lifecycles, and Bayesian learning:
+### 5.3 LLM Narrative Generation (Post-Evaluation)
+Generates LLM-drafted customer messages and escalation briefings from the completed audit trail:
+
+```bash
+python -m reclaim.evaluation.generate_narratives
+```
+
+### 5.4 Automated Test Suite
+Runs all 18 unit tests validating guardrails, state machine lifecycles, Bayesian learning, and Razorpay adapter degradation:
 
 ```bash
 python -m pytest reclaim/tests/ -v
@@ -128,6 +143,7 @@ reclaim/
 ├── evaluation_results.txt           # Latest batch evaluation metrics output
 ├── recovered_amount_by_strategy.png # Evaluation chart: Recovered ₹ comparison
 ├── recovery_rate_by_root_cause.png  # Evaluation chart: Recovery rate by RCA
+├── requirements.txt                 # Core + optional dependencies
 ├── reclaim/
 │   ├── data/
 │   │   ├── schema.sql               # SQLite cases & audit_trail tables
@@ -137,19 +153,23 @@ reclaim/
 │   │   ├── rca.py                   # Fixed lookup table classifier (6 root causes)
 │   │   ├── policy_agent.py          # Proposes 2-4 candidates strictly from allowlist
 │   │   ├── erv_scorer.py            # Beta(α,β) Bayesian ERV Scorer
-│   │   └── guardrails.py            # Confidence floor (<5) & attempt cap (3) checks
+│   │   ├── guardrails.py            # Confidence floor (<5) & attempt cap (3) checks
+│   │   └── narrator.py              # LLM narration layer (Groq/Llama 3 + template fallback)
 │   ├── core/
 │   │   ├── state_machine.py         # Closed-loop case lifecycle state machine
 │   │   ├── executor.py              # Deterministic seeded simulator (+ failure injection)
+│   │   ├── razorpay_adapter.py      # Razorpay test-mode payment link API adapter
 │   │   └── audit.py                 # SQLite append-only audit trail logger
 │   ├── evaluation/
 │   │   ├── baseline.py              # Naive 1-shot baseline comparison
 │   │   ├── run_evaluation.py        # Batch evaluation, reporting, and chart generator
-│   │   └── demo_scenario.py         # Step-by-step single-case walkthrough script
+│   │   ├── demo_scenario.py         # Step-by-step single-case walkthrough script
+│   │   └── generate_narratives.py   # Post-evaluation LLM narrative batch generator
 │   └── tests/
 │       ├── test_guardrails.py       # Guardrail unit tests
 │       ├── test_state_machine.py    # State machine transition unit tests
-│       └── test_erv_scorer.py       # Bayesian posterior convergence & ERV tests
+│       ├── test_erv_scorer.py       # Bayesian posterior convergence & ERV tests
+│       └── test_razorpay.py         # Razorpay adapter & graceful degradation tests
 ```
 
 ---
@@ -158,7 +178,7 @@ reclaim/
 
 - [x] `evaluation/run_evaluation.py` runs end to end on fresh clone and prints RECLAIM vs. Baseline comparison
 - [x] `evaluation/demo_scenario.py` walks one case through every stage with printed output and supports `--force-failure`
-- [x] All 14 unit tests in `tests/` pass with zero failures
+- [x] All 18 unit tests in `tests/` pass with zero failures
 - [x] Every `Stopped` / `Escalated` case has a corresponding audit row with mandatory `stop_reason`
 - [x] Nothing outside the section 4.3 action allowlist is ever executed (assertion-enforced)
 - [x] All randomness seeded with deterministic hashes for 100% reproducible execution

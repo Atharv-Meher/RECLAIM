@@ -63,6 +63,13 @@ def evaluate_reclaim(cases: list[dict], db_path: str) -> dict:
         risk_score = compute_risk_score(case)
         case["risk_score"] = risk_score
 
+        # Persist risk_score to the database
+        conn.execute(
+            "UPDATE cases SET risk_score = ? WHERE case_id = ?",
+            (risk_score, case_id),
+        )
+        conn.commit()
+
         # 1. Detected -> Diagnosed
         sm.transition(CaseState.DIAGNOSED)
         root_cause = classify(case)
@@ -103,21 +110,6 @@ def evaluate_reclaim(cases: list[dict], db_path: str) -> dict:
                 resolved = True
                 break
 
-            elif g_res == GuardrailResult.STOP:
-                sm.transition(CaseState.STOPPED)
-                audit.log_decision(
-                    case_id=case_id,
-                    root_cause=root_cause,
-                    action_taken=best_action,
-                    confidence_at_decision=confidence,
-                    outcome="stopped",
-                    stop_reason=g_reason,
-                )
-                final_outcome = "stopped"
-                actions_taken.append(best_action)
-                resolved = True
-                break
-
             elif g_res == GuardrailResult.APPROVE:
                 sm.transition(CaseState.EXECUTING)
                 actions_taken.append(best_action)
@@ -138,7 +130,10 @@ def evaluate_reclaim(cases: list[dict], db_path: str) -> dict:
                     resolved = True
                     break
                 else:
-                    if attempts >= 3:
+                    # Re-check guardrails after incrementing attempts —
+                    # this is the single source of truth for the attempt cap
+                    g_stop_res, g_stop_reason = check(best_action, confidence, attempts)
+                    if g_stop_res == GuardrailResult.STOP:
                         sm.transition(CaseState.STOPPED)
                         audit.log_decision(
                             case_id=case_id,
@@ -146,7 +141,7 @@ def evaluate_reclaim(cases: list[dict], db_path: str) -> dict:
                             action_taken=best_action,
                             confidence_at_decision=confidence,
                             outcome="stopped",
-                            stop_reason="Case has exhausted 3 attempts — stopping recovery.",
+                            stop_reason=g_stop_reason,
                         )
                         final_outcome = "stopped"
                         resolved = True

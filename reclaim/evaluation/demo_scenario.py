@@ -38,7 +38,7 @@ from reclaim.agents.risk_detector import compute_risk_score
 from reclaim.agents.rca import classify
 from reclaim.agents.policy_agent import get_candidates
 from reclaim.agents.erv_scorer import ERVScorer
-from reclaim.agents.guardrails import check, GuardrailResult
+from reclaim.agents.guardrails import check, GuardrailResult, MAX_ATTEMPTS as guardrails_max
 from reclaim.core.state_machine import CaseStateMachine, CaseState
 from reclaim.core.executor import SimulatedExecutor
 from reclaim.core.audit import AuditTrail
@@ -146,15 +146,6 @@ def run_demo(case_id: str | None = None, force_failure: bool = False):
             resolved = True
             break
 
-        elif g_res == GuardrailResult.STOP:
-            sm.transition(CaseState.STOPPED)
-            audit.log_decision(
-                selected["case_id"], root_cause, best_action, confidence, "stopped", g_reason
-            )
-            print(f"  ➔ Recovery STOPPED: {g_reason} [TERMINAL]")
-            resolved = True
-            break
-
         elif g_res == GuardrailResult.APPROVE:
             sm.transition(CaseState.EXECUTING)
             print(f"  • State Machine:       ➔ {sm.state.value}")
@@ -184,13 +175,16 @@ def run_demo(case_id: str | None = None, force_failure: bool = False):
                 break
             else:
                 print(f"  ✖ Outcome: Attempt Failed (Unresolved).")
-                if attempts >= 3:
+                # Re-check guardrails after incrementing attempts —
+                # single source of truth for the attempt cap
+                g_stop_res, g_stop_reason = check(best_action, confidence, attempts)
+                if g_stop_res == GuardrailResult.STOP:
                     sm.transition(CaseState.STOPPED)
                     audit.log_decision(
                         selected["case_id"], root_cause, best_action, confidence, "stopped",
-                        "Case has exhausted 3 attempts — stopping recovery."
+                        g_stop_reason
                     )
-                    print(f"  ➔ Attempts exhausted ({attempts}/3). Case STOPPED. [TERMINAL]")
+                    print(f"  ➔ Attempts exhausted ({attempts}/{guardrails_max}). Case STOPPED. [TERMINAL]")
                     resolved = True
                     break
                 else:
@@ -205,6 +199,29 @@ def run_demo(case_id: str | None = None, force_failure: bool = False):
     print(f"Audit log rows recorded for {selected['case_id']} in SQLite:")
     for h in history:
         print(f"  [{h['timestamp']}] Action: {h['action_taken']:<25} | Outcome: {h['outcome']:<13} | Conf: {h['confidence_at_decision']:<4} | Stop Reason: {h['stop_reason']}")
+
+    # STAGE 8: LLM Narrator (additive only — after all decisions are finalized)
+    from reclaim.agents.narrator import draft_customer_message, draft_escalation_briefing
+
+    final_state = sm.state.value
+    # Get the last action and confidence from the most recent audit entry
+    last_entry = history[-1] if history else {}
+    last_action = last_entry.get("action_taken", "")
+    last_confidence = last_entry.get("confidence_at_decision", 0)
+    last_reason = last_entry.get("stop_reason", "")
+
+    if sm.state == CaseState.ESCALATED:
+        print("\n[STAGE 8: LLM NARRATOR — ESCALATION BRIEFING]")
+        briefing = draft_escalation_briefing(
+            selected, root_cause, float(last_confidence), last_reason or ""
+        )
+        print(briefing)
+    elif last_action in ("reminder_message", "otp_assist_link"):
+        print("\n[STAGE 8: LLM NARRATOR — CUSTOMER MESSAGE DRAFT]")
+        msg = draft_customer_message(selected, root_cause, last_action)
+        print(msg)
+    else:
+        print("\n[STAGE 8: LLM NARRATOR — No narration needed for this action type]")
 
     conn.close()
     if os.path.exists(db_file):

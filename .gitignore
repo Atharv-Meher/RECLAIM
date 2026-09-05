@@ -1,5 +1,8 @@
 reclaim.db
 __pycache__/
+*.md
+!README.md
+!ARCHITECTURE.md
 *.zip
 *.pyc
 *.png

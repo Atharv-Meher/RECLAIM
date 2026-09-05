@@ -14,7 +14,13 @@ feedback and falls back cleanly to simulation.
 
 import os
 from pathlib import Path
-import razorpay
+
+try:
+    import razorpay
+    RAZORPAY_SDK_AVAILABLE = True
+except ImportError:
+    razorpay = None
+    RAZORPAY_SDK_AVAILABLE = False
 
 
 def load_env(env_path: str | None = None) -> dict[str, str]:
@@ -64,7 +70,7 @@ class RazorpayAdapter:
         self.key_secret = key_secret or os.environ.get("RAZORPAY_KEY_SECRET", "")
         self._client = None
 
-        if self.is_configured():
+        if self.is_configured() and RAZORPAY_SDK_AVAILABLE:
             try:
                 self._client = razorpay.Client(
                     auth=(self.key_id, self.key_secret)
@@ -74,6 +80,8 @@ class RazorpayAdapter:
 
     def is_configured(self) -> bool:
         """Check if valid, non-placeholder credentials are provided."""
+        if not RAZORPAY_SDK_AVAILABLE:
+            return False
         if not self.key_id or not self.key_secret:
             return False
         if "YOUR_KEY_ID_HERE" in self.key_id or "YOUR_KEY_SECRET_HERE" in self.key_secret:
@@ -88,6 +96,8 @@ class RazorpayAdapter:
 
         Returns (is_valid, message).
         """
+        if not RAZORPAY_SDK_AVAILABLE:
+            return False, "Razorpay SDK not installed (pip install razorpay)"
         if not self.is_configured():
             return False, "Razorpay credentials not configured in .env (or using placeholder values)"
 
