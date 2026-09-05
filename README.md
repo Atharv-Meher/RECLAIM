@@ -36,23 +36,23 @@ requires_verification      | 24    | 4.2%  (₹7k)       | 25.0% (₹53k)      |
 
 ```mermaid
 flowchart TD
-    A[At-Risk Transaction Batch] --> B[Risk Detector (Priority 0-1)]
-    B --> C[Root Cause Classifier (RCA Table)]
-    C --> D[Recovery Policy Agent (Allowlist Candidates)]
-    D --> E[Confidence-Aware ERV Scorer (Beta Posterior)]
-    E --> F{Guardrail Engine}
-    F -->|Approved (Conf >= 5, Attempts < 3)| G[Simulated Executor]
-    F -->|Escalate (Conf < 5)| H[Human Review Queue]
-    G --> I{Outcome}
-    I -->|Recovered| J[SQLite Audit Trail]
-    I -->|Unresolved & Attempts < 3| D
-    I -->|Attempts >= 3 (Exhausted)| J
+    A["At-Risk Transaction Batch"] --> B["Risk Detector (Priority 0-1)"]
+    B --> C["Root Cause Classifier (RCA Table)"]
+    C --> D["Recovery Policy Agent (Allowlist Candidates)"]
+    D --> E["Confidence-Aware ERV Scorer (Beta Posterior)"]
+    E --> F{"Guardrail Engine"}
+    F -->|"Approved (Conf >= 5, Attempts < 3)"| G["Simulated Executor"]
+    F -->|"Escalate (Conf < 5)"| H["Human Review Queue"]
+    G --> I{"Outcome"}
+    I -->|"Recovered"| J["SQLite Audit Trail"]
+    I -->|"Unresolved & Attempts < 3"| D
+    I -->|"Attempts >= 3 (Exhausted)"| J
     H --> J
-    J --> K[Batch Evaluation vs. Baseline]
+    J --> K["Batch Evaluation vs. Baseline"]
 ```
 
 ### The Bayesian ERV Scorer
-$$\text{ERV}(a) = P(\text{recovery} \mid \text{root_cause}, a) \times \text{amount} - \text{cost}(a) - \text{friction}(a) - \text{risk}(a)$$
+$$\text{ERV}(a) = P(\text{recovery} \mid \text{root\_cause}, a) \times \text{amount} - \text{cost}(a) - \text{friction}(a) - \text{risk}(a)$$
 
 - Instead of a static or blackbox ML classifier, RECLAIM maintains a **$\text{Beta}(\alpha, \beta)$ posterior** for each `(root_cause, action)` pair.
 - The prior is weak uniform ($\alpha_0=1, \beta_0=1$).
