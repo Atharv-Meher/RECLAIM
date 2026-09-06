@@ -106,7 +106,7 @@ python -m reclaim.evaluation.run_evaluation
 - `recovered_amount_by_strategy.png` (Headline ₹ comparison)
 - `recovery_rate_by_root_cause.png` (Performance breakdown per failure cause)
 
-### 5.2 Single-Case Demo Walkthrough (For Presentations & Video)
+### 5.2 Single-Case Demo Walkthrough (For Presentations)
 Walks through all stages of an individual case (signal ➔ risk ➔ RCA ➔ ERV ranking ➔ guardrail ➔ execution ➔ audit):
 
 ```bash
