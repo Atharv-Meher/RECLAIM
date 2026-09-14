@@ -1,5 +1,4 @@
 # RECLAIM — AI Revenue Recovery Agent
-> **Razorpay AI Buildathon — Track 03: AI Revenue Recovery**
 
 RECLAIM is an autonomous, defense-only AI agent that recovers lost revenue from payment failures and checkout abandonments. Instead of spamming customers with blunt, static reminder schedules, RECLAIM diagnoses failure root causes, scores candidate interventions via a **Bayesian Beta(α, β) Expected Recovery Value (ERV) Scorer** that sharpens its beliefs across the batch, and acts inside strict, verifiable guardrails with append-only SQLite audit trails.
 
